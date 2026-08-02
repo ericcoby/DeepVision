@@ -1,0 +1,13 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+numpy>=1.26.4
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+scipy>=1.14.1
+
+# Pretrained model (default detection method — see model.py).
+# First run downloads the model from Hugging Face (~350MB), then it's cached
+# locally. Needs a normal internet connection on whatever machine runs this.
+torch>=2.6.0
+transformers>=4.46.0
