@@ -1,6 +1,5 @@
 # DeepVision
 
-Split into two independent pieces so you and a teammate can work in parallel:
 
 ```
 deepfake-detector/
