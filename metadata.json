@@ -1,0 +1,6 @@
+{
+  "name": "DeepVision",
+  "description": "Next-gen deepfake detection, forensic media scanner, and synthetic media analysis platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
