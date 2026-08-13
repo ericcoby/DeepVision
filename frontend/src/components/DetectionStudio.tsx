@@ -502,13 +502,13 @@ export const DetectionStudio: React.FC<DetectionStudioProps> = ({
               }`}>
                 <h5 className={`font-bold text-[11px] uppercase tracking-wider ${
                   isDark ? 'text-zinc-300' : 'text-zinc-800'
-                }`}>Forensic Metric Breakdown</h5>
+                }`}>Detection Signals</h5>
 
                 <div className="space-y-1">
                   <div className={`flex justify-between text-[11px] font-medium ${
                     isDark ? 'text-zinc-400' : 'text-zinc-700'
                   }`}>
-                    <span>Landmark Consistency</span>
+                    <span>Facial Feature Consistency</span>
                     <span>{scanResult.metrics.landmarkConsistency}%</span>
                   </div>
                   <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`}>
@@ -523,7 +523,7 @@ export const DetectionStudio: React.FC<DetectionStudioProps> = ({
                   <div className={`flex justify-between text-[11px] font-medium ${
                     isDark ? 'text-zinc-400' : 'text-zinc-700'
                   }`}>
-                    <span>Lighting & Reflection Vector Coherence</span>
+                    <span>Lighting Match</span>
                     <span>{scanResult.metrics.lightingCoherence}%</span>
                   </div>
                   <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`}>
@@ -538,7 +538,7 @@ export const DetectionStudio: React.FC<DetectionStudioProps> = ({
                   <div className={`flex justify-between text-[11px] font-medium ${
                     isDark ? 'text-zinc-400' : 'text-zinc-700'
                   }`}>
-                    <span>Frequency Noise Anomaly Rate</span>
+                    <span>Texture / Noise Pattern Match</span>
                     <span>{scanResult.metrics.frequencyDomainNoise}%</span>
                   </div>
                   <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-slate-200'}`}>
@@ -552,7 +552,7 @@ export const DetectionStudio: React.FC<DetectionStudioProps> = ({
 
               {/* Deepfake Detector Detailed Forensic Analysis */}
               <div className="space-y-1.5">
-                <h5 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-zinc-900'}`}>AI Technical Summary</h5>
+                <h5 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-zinc-900'}`}>Summary</h5>
                 <p className={`text-xs leading-relaxed p-3 rounded-xl border ${
                   isDark ? 'bg-[#0d0d12] border-zinc-800 text-zinc-300' : 'bg-slate-50 border-slate-200 text-zinc-700'
                 }`}>
@@ -562,7 +562,7 @@ export const DetectionStudio: React.FC<DetectionStudioProps> = ({
 
               {/* Detected Anomalies Tags */}
               <div className="space-y-1.5">
-                <h5 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-zinc-900'}`}>Detected Anomaly Tags</h5>
+                <h5 className={`font-bold text-xs ${isDark ? 'text-white' : 'text-zinc-900'}`}>Why We Think This</h5>
                 <div className="flex flex-wrap gap-1.5">
                   {scanResult.detectedAnomalies.map((anom, idx) => (
                     <span

@@ -111,12 +111,12 @@ export function mapApiDetectionResponseToResult(
   const confidenceScore = isFake ? fakePercent : authPercent;
 
   const verdict = isFake
-    ? `High Probability Deepfake (${fakePercent}%)`
-    : `Likely Authentic Media (${authPercent}% Authentic)`;
+    ? `Likely AI-Generated or Manipulated (${fakePercent}% confidence)`
+    : `Likely Authentic (${authPercent}% confidence)`;
 
   const analysisSummary = isFake
-    ? `Python FastAPI Deepfake model evaluated "${filename}" (${mediaType}) with a fake score of ${rawScore.toFixed(4)}. Neural synthesis artifacts and frequency domain discrepancies were identified.`
-    : `Python FastAPI Deepfake model evaluated "${filename}" (${mediaType}) with an authentic score of ${(1 - rawScore).toFixed(4)}. Sensor noise distribution and landmark patterns appear consistent with genuine media.`;
+    ? `We're ${fakePercent}% confident "${filename}" is AI-generated or manipulated. Our models compared it against patterns typical of real photos and found it a closer match to synthetic or edited media${mediaType === 'video' ? ', including some inconsistency between frames' : ''}.`
+    : `We're ${authPercent}% confident "${filename}" is a genuine, unedited ${mediaType}. Our models didn't find the visual patterns typically left behind by AI image generators or face-swap tools.`;
 
   // Compute metric gauges based on model score
   const metrics = {
@@ -132,23 +132,23 @@ export function mapApiDetectionResponseToResult(
       : Math.min(99, Math.round((1 - rawScore) * 15 + 85)),
   };
 
-  // Generate list of anomalies found
+  // Generate list of plain-language reasons behind the verdict
   const detectedAnomalies: string[] = [];
   if (isFake) {
-    detectedAnomalies.push(`Neural deepfake likelihood score: ${(rawScore * 100).toFixed(1)}%`);
+    detectedAnomalies.push(`${(rawScore * 100).toFixed(0)}% match to AI-generated or manipulated media`);
     if (rawScore > 0.7) {
-      detectedAnomalies.push("Vision Transformer / CNN detected facial synthesis boundary artifacts");
-      detectedAnomalies.push("High-frequency spectral noise anomaly in FFT magnitude profile");
+      detectedAnomalies.push("Unnatural edges or blending where features meet the background");
+      detectedAnomalies.push("Texture looks too smooth or synthetic in places a real photo wouldn't be");
     }
     if (mediaType === 'video') {
-      detectedAnomalies.push("Temporal frame landmark jitter and inter-frame facial alignment variance");
+      detectedAnomalies.push("Face doesn't stay perfectly consistent from one frame to the next");
     } else {
-      detectedAnomalies.push("Inconsistent specular reflections and sub-dermal scattering in facial landmarks");
+      detectedAnomalies.push("Lighting and reflections on the face don't fully match the rest of the scene");
     }
   } else {
-    detectedAnomalies.push(`Authentic confidence verification: ${authPercent}%`);
-    detectedAnomalies.push("Natural camera sensor noise and frequency spectrum distribution verified");
-    detectedAnomalies.push("Facial landmark grid & illumination vectors pass authenticity checks");
+    detectedAnomalies.push(`${authPercent}% match to genuine, unedited media`);
+    detectedAnomalies.push("Natural camera grain and lighting consistent with a real photo");
+    detectedAnomalies.push("No signs of AI-generation or face-swap artifacts found");
   }
 
   // Generate visual heatmap coordinates

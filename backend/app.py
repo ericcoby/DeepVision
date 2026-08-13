@@ -43,7 +43,12 @@ THRESHOLD = float(os.environ.get("DEEPFAKE_THRESHOLD", "0.5"))
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_mode": detector.mode}
+    active = []
+    if detector.faceswap_pipeline:
+        active.append("faceswap")
+    if detector.general_pipeline:
+        active.append("general-ai")
+    return {"status": "ok", "model_mode": detector.mode, "active_submodels": active}
 
 
 @app.post("/api/detect")

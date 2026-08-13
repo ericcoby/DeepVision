@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DeepVision Quick Scan</title>
+  <style>
+    body {
+      width: 260px;
+      font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #15151e;
+      color: #f4f4f5;
+      padding: 14px;
+      margin: 0;
+    }
+    h1 {
+      font-size: 14px;
+      margin: 0 0 10px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #a1a1aa;
+      margin-bottom: 4px;
+    }
+    input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      background: #0d0d12;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+      color: #f4f4f5;
+      padding: 6px 8px;
+      margin-bottom: 12px;
+      font: inherit;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    p.hint {
+      color: #a1a1aa;
+      font-size: 11px;
+      margin-top: 12px;
+    }
+    #status {
+      font-size: 11px;
+      margin-top: 8px;
+      min-height: 14px;
+      color: #34d399;
+    }
+  </style>
+</head>
+<body>
+  <h1>DeepVision Quick Scan</h1>
+
+  <label for="backendUrl">Backend URL</label>
+  <input type="text" id="backendUrl" placeholder="http://localhost:8000" />
+
+  <div class="row">
+    <label for="showBubble" style="margin: 0;">Show floating button</label>
+    <input type="checkbox" id="showBubble" />
+  </div>
+
+  <button id="save">Save</button>
+  <div id="status"></div>
+
+  <p class="hint">Click the floating button on any page, then click an image to scan it. Or right-click any image → "Scan image with DeepVision".</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,27 +1,43 @@
 """
 Deepfake detection model wrapper.
 
-Primary mode: PRETRAINED MODEL (no training required)
-  Uses dima806/deepfake_vs_real_image_detection, a Vision Transformer from
-  Hugging Face fine-tuned specifically on real-vs-deepfake FACE images.
-  https://huggingface.co/dima806/deepfake_vs_real_image_detection
+Primary mode: PRETRAINED MODELS (no training required) — two Vision
+  Transformers from Hugging Face, run together so each covers the other's
+  blind spot:
 
-  On first run, `transformers` downloads the model (~350MB) and caches it
-  locally (~/.cache/huggingface). After that it loads instantly offline.
+  1. dima806/deepfake_vs_real_image_detection — fine-tuned on face-swap
+     deepfakes (FaceForensics++-era data). Good at classic face swaps,
+     but was never trained on fully AI-generated images, so it tends to
+     call diffusion-generated pictures (Midjourney/DALL-E/Stable
+     Diffusion/etc.) "real" since nothing about them looks like a swapped
+     face specifically.
+     https://huggingface.co/dima806/deepfake_vs_real_image_detection
 
-Fallback mode: FREQUENCY HEURISTIC (used only if the pretrained model can't
-  be loaded — e.g. no internet, or transformers/torch not installed). Uses
-  FFT spectral analysis to catch GAN upsampling artifacts. Works with zero
-  dependencies beyond opencv/numpy, so the API stays usable either way.
+  2. dima806/ai_vs_human_generated_image_detection — fine-tuned to tell
+     apart fully AI-generated images from real photos in general (not
+     face-specific). Covers the case the face-swap model misses.
+     https://huggingface.co/dima806/ai_vs_human_generated_image_detection
+
+  The final score is the max of the two, so a media file is flagged if
+  *either* model finds it suspicious.
+
+  On first run, `transformers` downloads each model (~350MB) and caches
+  them locally (~/.cache/huggingface). After that they load instantly
+  offline.
+
+Fallback mode: FREQUENCY HEURISTIC (used only if neither pretrained model
+  can be loaded — e.g. no internet, or transformers/torch not installed).
+  Uses FFT spectral analysis to catch GAN upsampling artifacts. Works with
+  zero dependencies beyond opencv/numpy, so the API stays usable either way.
 
 Both modes expose the same interface: predict_image() and predict_video(),
 each returning a float score in [0, 1] where higher = more likely fake.
 
-NOTE ON ACCURACY: the pretrained model was trained on a deepfake face
-dataset collected years ago. Newer generators (2024+ diffusion-based
-face swaps) may not be well represented, so expect some concept drift.
-This is a known, documented limitation of the model itself — worth
-mentioning in your project report if you evaluate against recent data.
+NOTE ON ACCURACY: both pretrained models were trained on datasets collected
+a while back. The newest generators may not be well represented, so expect
+some concept drift. This is a known, documented limitation of the models
+themselves — worth mentioning in your project report if you evaluate
+against very recent data.
 """
 
 import os
@@ -29,14 +45,16 @@ import numpy as np
 import cv2
 from PIL import Image
 
-HF_MODEL_NAME = "dima806/deepfake_vs_real_image_detection"
+FACESWAP_MODEL_NAME = "dima806/deepfake_vs_real_image_detection"
+GENERAL_AI_MODEL_NAME = "dima806/ai_vs_human_generated_image_detection"
 LOCAL_CHECKPOINT = os.path.join(os.path.dirname(__file__), "weights", "model.pt")
 
 
 class DeepfakeDetector:
     def __init__(self):
         self.mode = None
-        self.pipeline = None
+        self.faceswap_pipeline = None
+        self.general_pipeline = None
 
         if os.path.exists(LOCAL_CHECKPOINT):
             # A fine-tuned checkpoint from train.py takes priority, if present.
@@ -45,18 +63,24 @@ class DeepfakeDetector:
                 self.mode = "finetuned"
             except Exception as e:
                 print(f"[model] Found a checkpoint but couldn't load it ({e}). "
-                      f"Falling back to the default pretrained model.")
+                      f"Falling back to the default pretrained models.")
 
         if self.mode is None:
-            try:
-                self._load_pretrained()
-                self.mode = "pretrained"
-            except Exception as e:
-                print(f"[model] Could not load pretrained model ({e}). "
-                      f"Falling back to frequency-heuristic mode.")
-                self.mode = "heuristic"
+            self._load_faceswap_model()
+            self.mode = "pretrained" if self.faceswap_pipeline else "heuristic"
+            # The general AI-image model is a separate ~350MB download. Fetch it
+            # on a background thread so a slow/first-time download never blocks
+            # server startup or requests — it attaches itself once ready.
+            import threading
+            threading.Thread(target=self._load_general_model, daemon=True).start()
 
-        print(f"[model] Running in '{self.mode}' mode.")
+        active = []
+        if self.faceswap_pipeline:
+            active.append("faceswap")
+        if self.general_pipeline:
+            active.append("general-ai")
+        print(f"[model] Running in '{self.mode}' mode. Active sub-models: {active or 'none'} "
+              f"(general-ai model, if not yet listed, is still downloading in the background).")
 
     def _load_local_checkpoint(self):
         import torch
@@ -87,21 +111,64 @@ class DeepfakeDetector:
         return float(score)
 
     # ------------------------------------------------------------------
-    # Primary: pretrained Hugging Face model
+    # Primary: pretrained Hugging Face models
     # ------------------------------------------------------------------
-    def _load_pretrained(self):
+    def _load_faceswap_model(self):
         from transformers import pipeline
-        self.pipeline = pipeline("image-classification", model=HF_MODEL_NAME)
+
+        try:
+            self.faceswap_pipeline = pipeline("image-classification", model=FACESWAP_MODEL_NAME)
+        except Exception as e:
+            print(f"[model] Could not load face-swap model ({e}).")
+
+    def _load_general_model(self):
+        import time
+        from transformers import pipeline
+
+        retry_delay_s = 300
+        while self.general_pipeline is None:
+            try:
+                self.general_pipeline = pipeline("image-classification", model=GENERAL_AI_MODEL_NAME)
+                print("[model] General AI-image model finished downloading and is now active.")
+            except Exception as e:
+                print(f"[model] Could not load general AI-image model ({e}). "
+                      f"Retrying in {retry_delay_s}s (likely a network hiccup on a ~350MB download).")
+                time.sleep(retry_delay_s)
+
+    @staticmethod
+    def _fake_score_from_results(results, fake_keywords, real_keywords) -> float:
+        # Pipeline returns e.g. [{"label": "Fake", "score": 0.92}, {"label": "Real", "score": 0.08}]
+        # Match label text loosely since each checkpoint names its classes differently.
+        for r in results:
+            label = r["label"].lower()
+            if any(k in label for k in fake_keywords):
+                return float(r["score"])
+            if any(k in label for k in real_keywords):
+                return 1.0 - float(r["score"])
+        # Shouldn't happen for a binary classifier, but don't crash if labels are unrecognized
+        return float(results[0]["score"])
 
     def _pretrained_score(self, pil_image: Image.Image) -> float:
-        results = self.pipeline(pil_image.convert("RGB"))
-        # Pipeline returns e.g. [{"label": "Fake", "score": 0.92}, {"label": "Real", "score": 0.08}]
-        # Find the "fake" entry regardless of exact casing/label text.
-        for r in results:
-            if "fake" in r["label"].lower():
-                return float(r["score"])
-        # Shouldn't happen for a binary classifier, but don't crash if labels differ
-        return 1.0 - float(results[0]["score"]) if "real" in results[0]["label"].lower() else float(results[0]["score"])
+        rgb_image = pil_image.convert("RGB")
+        scores = []
+
+        if self.faceswap_pipeline:
+            results = self.faceswap_pipeline(rgb_image)
+            scores.append(self._fake_score_from_results(results, ["fake"], ["real"]))
+
+        if self.general_pipeline:
+            results = self.general_pipeline(rgb_image)
+            scores.append(self._fake_score_from_results(results, ["ai"], ["human", "real"]))
+        else:
+            # The general AI-image model hasn't finished downloading yet (or failed to).
+            # Use the zero-dependency FFT heuristic as a temporary stand-in so images
+            # with no face in them (which the face-swap model can't judge) still get a
+            # real signal instead of defaulting to "authentic". Stops being used the
+            # moment the background download completes and general_pipeline is set.
+            scores.append(self._heuristic_score(rgb_image))
+
+        # Flag as fake if either specialist model finds it suspicious.
+        return max(scores)
 
     # ------------------------------------------------------------------
     # Fallback: FFT spectral artifact analysis (no download/internet needed)
@@ -143,7 +210,10 @@ class DeepfakeDetector:
     def predict_image_array(self, pil_image: Image.Image) -> float:
         if self.mode == "finetuned":
             return self._finetuned_score(pil_image)
-        if self.mode == "pretrained":
+        # Check the pipelines directly (not just self.mode) so the general-ai
+        # model gets used as soon as its background download finishes, even
+        # if it wasn't ready yet when the server started.
+        if self.faceswap_pipeline or self.general_pipeline:
             return self._pretrained_score(pil_image)
         return self._heuristic_score(pil_image)
 
