@@ -13,10 +13,16 @@ Primary mode: PRETRAINED MODELS (no training required) — two Vision
      face specifically.
      https://huggingface.co/dima806/deepfake_vs_real_image_detection
 
-  2. dima806/ai_vs_human_generated_image_detection — fine-tuned to tell
-     apart fully AI-generated images from real photos in general (not
-     face-specific). Covers the case the face-swap model misses.
-     https://huggingface.co/dima806/ai_vs_human_generated_image_detection
+  2. Smogy/SMOGY-Ai-images-detector — Swin-based (fine-tuned from
+     Organika/sdxl-detector) on 50k+ images from Reddit/Kaggle/public-domain
+     art, to tell apart fully AI-generated images from real photos in
+     general (not face-specific). Covers the case the face-swap model
+     misses. NOTE: swapped in after Ateeqq/ai-vs-human-image-detector
+     turned out to be badly overfit in practice (99.999% "ai" confidence
+     on a plain untouched real photo) — always sanity-check a candidate
+     model against a real photo before trusting it, these community
+     fine-tunes vary wildly in real-world reliability.
+     https://huggingface.co/Smogy/SMOGY-Ai-images-detector
 
   The final score is the max of the two, so a media file is flagged if
   *either* model finds it suspicious.
@@ -46,7 +52,7 @@ import cv2
 from PIL import Image
 
 FACESWAP_MODEL_NAME = "dima806/deepfake_vs_real_image_detection"
-GENERAL_AI_MODEL_NAME = "dima806/ai_vs_human_generated_image_detection"
+GENERAL_AI_MODEL_NAME = "Smogy/SMOGY-Ai-images-detector"
 LOCAL_CHECKPOINT = os.path.join(os.path.dirname(__file__), "weights", "model.pt")
 
 
@@ -158,7 +164,8 @@ class DeepfakeDetector:
 
         if self.general_pipeline:
             results = self.general_pipeline(rgb_image)
-            scores.append(self._fake_score_from_results(results, ["ai"], ["human", "real"]))
+            # Smogy/SMOGY-Ai-images-detector labels are "artificial" and "human".
+            scores.append(self._fake_score_from_results(results, ["artificial", "ai"], ["human", "real"]))
         else:
             # The general AI-image model hasn't finished downloading yet (or failed to).
             # Use the zero-dependency FFT heuristic as a temporary stand-in so images
